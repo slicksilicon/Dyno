@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+.division{
+    display : flex;
+    flex-direction: column;
+    width : 100%;
+    padding: 10px;
+    gap: 10px;    
+    border-bottom: 3px solid black;
+}
+</style>
+
+<div  id="graph_id" style="display:flex; flex-direction: row; height: calc(100% - 20px); width: calc(100% - 20px); background-color:#BDDEE5; margin: 10px; border: solid 3px black;"></div>
+<script type='module' src="/DynoColorMap.js"></script>
+
+{% endblock %}
