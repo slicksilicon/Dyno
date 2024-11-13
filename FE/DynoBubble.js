@@ -32,7 +32,10 @@ export class DynoBubble{
 
         /** Internal Variables **/
         this.labels = [];
+
+        /** Callback Settings **/
         this.callback_click = null;
+        this.callback_hover = null;
 
         /** Parse Data **/
         this.groups = Object.keys(data);
@@ -53,6 +56,13 @@ export class DynoBubble{
      */
     set_callback_click(callback){
         this.callback_click = callback;
+    }
+
+    /**
+     * @param {CallableFunction} callback
+     */
+    set_callback_hover(callback){
+        this.callback_hover = callback;
     }
 
     _colors(){
@@ -165,6 +175,11 @@ export class DynoBubble{
             let color = getAttributeStr(circle, 'my_fill');
             circle.setAttribute('fill', color);
             removeElement(this.labels);
+
+            if (this.callback_hover != null){
+                this.callback_hover(null);
+            }
+
             return;
         }
 
@@ -176,9 +191,13 @@ export class DynoBubble{
         let point = this.data[group_name][point_name];
         
         let label_pos = this._label_position(circle);
-        let label_text = `[${group_name}:${point_name}] ${point}`;
-        let label = this.svg.text(label_text, label_pos[0], label_pos[1], 24, LABEL_WIDTH, LABEL_HEIGHT, 'black', 'center', 'center');
-        this.labels.push(label);        
+        // let label_text = `[${group_name}:${point_name}] ${point}`;        
+        let label = this.svg.text(point_name, label_pos[0], label_pos[1], 24, LABEL_WIDTH, LABEL_HEIGHT, 'black', 'center', 'center');
+        this.labels.push(label); 
+        
+        if (this.callback_hover != null){
+            this.callback_hover(point_name);
+        }
     }
 
     /**
