@@ -10,6 +10,15 @@ export class DynoTable{
         this.headers = headers;
         this.data = [];
         this.table = null;
+        this.widths = {};
+    }
+
+    /**
+     * @param {string} header
+     * @param {number} width
+     */
+    set_column_widths(header, width){
+        this.widths[header] = width;
     }
 
     /**
@@ -67,12 +76,17 @@ export class DynoTable{
 
     /**
      * @param {HTMLElement} table
+     * @param {{}} widths
      */
-    _create_header(table){
+    _create_header(table, widths){
         let thead = this._create_element('thead', [], null, null, table);
         let tr = this._create_element('tr',[],null,null, thead);
         for (let header of this.headers){
-            this._create_element('th', [], 'col', header, tr);
+            let column = this._create_element('th', [], 'col', header, tr);
+            if (header in widths){
+                column.setAttribute('style', `width : ${widths[header]}px`);
+            }
+
         }                
     }
 
@@ -92,7 +106,7 @@ export class DynoTable{
     _draw(){
         this.table = this._create_element('table', ['table', 'table-dark'], null, null, this.div);
         this.table.setAttribute('style', 'font-size : 12px');
-        this._create_header(this.table);        
+        this._create_header(this.table, this.widths);        
         let body = this._create_element('tbody', [], null, null, this.table);
         for (let row of this.data){
             this._create_row(row, body);
