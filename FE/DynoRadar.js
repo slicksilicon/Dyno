@@ -21,9 +21,9 @@ const LABEL_EDGE_TOP = 3;
 
 export class DynoRadar{
     /**
-     * @param {string|HTMLDivElement} id
+     * @param {string|HTMLElement} id
      * @param {DynoConfig} config
-     * @param {{[x:string]: {[x: string]: number}}} data
+     * @param {{[x:string]: {}}} data
      */
     constructor(id, data, config){  
         /* Store Parameters */

@@ -20,7 +20,7 @@ const PROPOTIONAL_ATTRIBUTES = {
 
 export class DynoSvg{
     /**
-     * @param {string|HTMLDivElement} parent
+     * @param {string|HTMLElement} parent
      */
     constructor(parent){
         this.parent = DivCtrl(parent, 'div');
