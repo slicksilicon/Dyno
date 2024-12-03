@@ -1,6 +1,6 @@
 import { DynoSvg } from "./DynoSvg.js";
-import { DynoConfig } from "./DynoConfig.js";
-import { get_colors, getAttributeStr,  get_text_color, DynoText} from "./DynoTools.js";
+import { DynoColors } from "./DynoColors.js";
+import { DynoRange } from "./DynoRange.js";
 
 const ITEM_LABEL_HEIGHT     = 32;
 const ITEM_LABEL_WIDTH      = 200;
@@ -19,68 +19,141 @@ const LABEL_EDGE_BOTTOM = 1;
 const LABEL_EDGE_LEFT = 2;
 const LABEL_EDGE_TOP = 3;
 
+const DEFAULT_COLOR_SCHEME = 'teal';
+const DEFAULT_ALPHA_VALUE  = 0.5;
+
+/**@typedef {{[x:string]: {}}} DataType */
+
 export class DynoRadar{
     /**
-     * @param {string|HTMLElement} id
-     * @param {DynoConfig} config
-     * @param {{[x:string]: {}}} data
+     * @param {string|HTMLElement} id     
+     * @param {{'left': number, 'right': number, 'top': number, 'bottom': number}} graph_margins
      */
-    constructor(id, data, config){  
-        /* Store Parameters */
-        this.svg = new DynoSvg(id);  
-        this.config = config;    
-        this.data = data;
+    constructor(id, graph_margins){  
+        /*********/
+        /** SVG **/
+        /*********/
+        /**@type DynoSvg */
+        this.dyno_svg = new DynoSvg(id);  
 
-        /* Create Derived Information */
-        this.categories = Object.keys(data);        
-        this.items = this._get_items();
-        this.max_value = (this.config.radar_max_value == null) ? this._get_max_value() : this.config.radar_max_value;
-        this.colors = get_colors(config.color_schemes, 'radar', 0.5, this.categories.length);        
+        /** @type {{'left': number, 'right': number, 'top': number, 'bottom': number}} graph_margins */
+        this.graph_margins = graph_margins;
 
-        /* Draw */
-        this.elements = {};
-        this.circle_param = {'cx':0, 'cy':0, 'radius': 0};
-        this._draw();
+        /**@type {{'radius': number, 'cx': number, 'cy' : number}} */
+        this.circle_param = {'radius':0 , 'cx': 0, 'cy': 0};
 
-        this.svg.add_resize_callback(this._draw.bind(this), true);
+        /**@type {{'axis': Element[], 'items': Element[], 'polygons': Element[]}} */
+        this.elements = {'axis' : [], 'items': [], 'polygons': [] };       
+                
+        /**********/
+        /** Data **/
+        /**********/
+        
+        /**@type DataType */        
+        this.data = {};     
+        /**@type string[] */   
+        this.categories = [];
+
+        /**@type string[] */
+        this.items = [];
+
+        /****************/
+        /** Data Range **/
+        /****************/
+        this.range = new DynoRange();
+
+        /***********/
+        /** Color **/
+        /***********/
+        this.dyno_color = new DynoColors();        
+        this.dyno_color.set_scheme_alpha(DEFAULT_COLOR_SCHEME, DEFAULT_ALPHA_VALUE);
+        
+        // this.max_value = (this.config.radar_max_value == null) ? this._get_max_value() : this.config.radar_max_value;
+        // this.colors = get_colors(config.color_schemes, 'radar', 0.5, this.categories.length);        
+        
+    
+        this.dyno_svg.add_resize_callback(this._draw.bind(this), true);
     }
 
-    _get_items(){
-        let items = [];
+    /**
+     * @param {DataType} data
+     */
+    set_data(data){
+        this.data = data;
+        this.categories = Object.keys(data);
+        let values = this._parse_items_and_get_values();
+        this.range.set_actual(values);
+
+        this.dyno_color.set_count(this.categories.length);
+
+    }
+
+    /**
+     * @param {string} scheme
+     * @param {number} alpha
+     */
+    set_color_scheme(scheme, alpha){
+        this.dyno_color.set_scheme_alpha(scheme, alpha);
+    }
+
+    /**
+     * @param {number|null} min
+     * @param {number|null} max
+     */
+    set_range(min, max){
+        this.range.set_user(min, max);
+    }
+
+    draw(){
+        this._draw();
+    }
+
+    remove(){
+        for (let element_type of Object.keys(this.elements)){
+            while (this.elements[element_type].length > 0){
+                let element = this.elements[element_type].pop();
+                element.remove();
+            }                                       
+        }
+    }
+
+    /**
+     * @return {number[]}
+     */
+    _parse_items_and_get_values(){
+        this.items.length = 0;
+        let values = [];
         for (const category of this.categories){
             for (const item of Object.keys(this.data[category])){
-                if (items.includes(item) == false){
-                    items.push(item);
+                if (this.items.includes(item) == false){
+                    this.items.push(item);
                 }
+                values.push(this.data[category][item]);
             }
         }
 
-        return items;
+        return values;
     }
 
-    _get_max_value(){
-        let max_value = 0;
-        for (const category of this.categories){
-            for (const value of Object.values(this.data[category])){
-                max_value = (value > max_value) ? value : max_value;
-            }
-        }
+    _calc_circle_param(){
+        let width = this.dyno_svg.get_width();
+        let height = this.dyno_svg.get_height();
+        this.circle_param = {'radius':0 , 'cx': 0, 'cy': 0};
+        let clean_width = width - (this.graph_margins.left + this.graph_margins.right);
+        let clean_height = height - (this.graph_margins.top + this.graph_margins.bottom);
+        this.circle_param.radius = Math.min(clean_height/2, clean_width/2);
 
-        return max_value;
+        this.circle_param.cx = this.graph_margins.left + (clean_width/2);
+        this.circle_param.cy = this.graph_margins.top + (clean_height/2);                
     }
-
-    _get_circle_param(){
-        let height = this.svg.get_height();
-        let width  = this.svg.get_width();
-        return this.config.get_circle_params(height, width);
-    }
-
+    
     /**
      * @param {number} value
      * @return {number}
      */
     _calc_radius_for_value(value){
-        return this.circle_param.radius * (value / this.max_value);
+        let percentage = value / (this.range.get_max());        
+        return this.circle_param.radius * percentage;
     }
 
     /**     
@@ -106,16 +179,16 @@ export class DynoRadar{
         let circle_param = Object.assign({}, this.circle_param);
         circle_param.radius = this._calc_radius_for_value(value);
 
-        return this.svg._calc_circumferance_pos(percentage, circle_param);        
+        return this.dyno_svg._calc_circumferance_pos(percentage, circle_param);        
     }
 
     _draw_circular_axis(){                
         let circle_param = Object.assign({}, this.circle_param);                     
         let circles = [];
         
-        for (let idx=1;idx<=this.max_value;idx++){
+        for (let idx=1;idx<=this.range.get_max();idx++){
             circle_param.radius = this._calc_radius_for_value(idx);
-            let circle = this.svg.circle(circle_param, 'transparent', 'black', 2, false);
+            let circle = this.dyno_svg.circle(circle_param, 'transparent', 'black', 2, false);
             circles.push(circle);
         }
         
@@ -153,7 +226,7 @@ export class DynoRadar{
                 'radius': DOT_RADIUS
             };
 
-            let dot_element = this.svg.circle(dot, 'black', 'black', 1, false);
+            let dot_element = this.dyno_svg.circle(dot, 'black', 'black', 1, false);
             elements.push(dot_element);
 
             /** Angle is in which Quandrant and is it an Edge (90 degree) point */
@@ -215,7 +288,7 @@ export class DynoRadar{
                 vertical = 'center';
             }
                         
-            let text_element = this.svg.text(item, rx, ry+ITEM_LABEL_HEIGHT/2, 24, ITEM_LABEL_WIDTH, ITEM_LABEL_HEIGHT, 'red', horizontal, vertical);
+            let text_element = this.dyno_svg.text(item, rx, ry+ITEM_LABEL_HEIGHT/2, 24, ITEM_LABEL_WIDTH, ITEM_LABEL_HEIGHT, 'red', horizontal, vertical);
 
             elements.push(text_element);
             angle += angle_step;    
@@ -237,8 +310,8 @@ export class DynoRadar{
 
         instruction = instruction + `${positions[0].cx} ${positions[0].cy}`;
         let clr_idx = this.categories.indexOf(category);        
-
-        let path = this.svg.path(instruction, 1, 'black', this.colors[clr_idx]);        
+        let fill_color = this.dyno_color.get_color(clr_idx);        
+        let path = this.dyno_svg.path(instruction, 1, 'black', fill_color);        
 
         return path;
     }
@@ -260,13 +333,15 @@ export class DynoRadar{
             let polygon = this._draw_path(cat_pos, category);
             elements.push(polygon);
         }
+
+        return elements;
     }
 
     _draw(){        
-        this.circle_param = this._get_circle_param();
-        this.elements['axis'] = this._draw_circular_axis();
-        this.elements['items'] = this._draw_items();
-        this.elements['polygon'] = this._draw_polygons();
+        this._calc_circle_param();
+        this.elements.axis = this._draw_circular_axis();
+        this.elements.items = this._draw_items();
+        this.elements.polygons = this._draw_polygons();
     }
 
 }

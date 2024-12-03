@@ -1,55 +1,107 @@
 import { MY_FILL, DynoSvg } from "./DynoSvg.js";
-import { DynoConfig } from "./DynoConfig.js";
-import { get_colors, getAttributeStr,  get_text_color, DynoText} from "./DynoTools.js";
+import { getAttributeStr } from "./DynoTools.js";
+import { DynoColors, get_text_color } from "./DynoColors.js";
+import { DynoText } from "./DynoText.js";
 
 const LABEL_HEIGHT = 50;
 const LABEL_WIDTH = 200;
 const LABEL_SPACING = 5;
 const FONT_SIZE = 24;
 
+const DEFAULT_COLOR_SCEHEME = 'mixed';
+const DEFAULT_COLOR_ALPHA   = 0.8;
+
+const DEFAULT_LABEL_MODE        = 'number';
+const DEFAULT_LABEL_DATE        = 'full';
+const DEFAULT_LABEL_CURRENCY    = 'ringgit';
+
 export class DynoPie{
     
     /**
-     * @param {string} id
-     * @param {{[x:string] : number}} data
-     * @param {DynoConfig} config
+     * @param {string|HTMLElement} id 
+     * @param {{'left': number, 'right': number, 'top': number, 'bottom': number}} graph_margins    
      */
-    constructor(id, data, config){
-        this.dyno_svg = new DynoSvg(id);
-        this.data = data;
-        this.config = config;
+    constructor(id, graph_margins){
+        this.dyno_svg = new DynoSvg(id);        
 
-        let categories = Object.keys(data);
-        this.colors = get_colors(config.color_schemes, 'pie', config.color_alpha, categories.length);        
-        
-        this.slices = this._parse();   
-        
-        this._draw();
+        /**@type {{[x:string] : number}} */
+        this.data = {};   
 
+        /**@type {{'left': number, 'right': number, 'top': number, 'bottom': number}} */
+        this.graph_margins = graph_margins;
+
+        /**@type {{[x:string] : {'value': number, 'percentage': number, 'color': string}}} */
+        this.slices = {};
+
+        /**@type {DynoColors} */
+        this.dyno_colors = new DynoColors();
+        this.dyno_colors.set_scheme_alpha(DEFAULT_COLOR_SCEHEME, DEFAULT_COLOR_ALPHA);
+
+        /**@type {DynoText} */
+        this.dyno_text = new DynoText(DEFAULT_LABEL_MODE, DEFAULT_LABEL_DATE, DEFAULT_LABEL_CURRENCY, null);
+        
         this.dyno_svg.add_resize_callback(this._resize.bind(this), true);
     }
 
+    /**
+     * @param {string} scheme
+     * @param {number} alpha
+     * @return {boolean}
+     */
+    set_color_scheme(scheme, alpha){
+        return this.dyno_colors.set_scheme_alpha(scheme, alpha);
+    }
+
+    /**
+     * @param {TYPE_LABEL_MODE | null} mode
+     * @param {TYPE_LABEL_CURRENCY | null} currency
+     * @param {TYPE_LABEL_DATE | null} date
+     */
+    set_label_format(mode, currency, date){
+        if (mode != null){            
+            this.dyno_text.set_mode(mode);
+        }
+
+        if (currency != null){
+            this.dyno_text.set_currency_type(currency);
+        }
+
+        if (date != null){
+            this.dyno_text.set_date_type(date);            
+        }
+    }
+
+    /**
+     * @param {{ [x: string]: number; }} data
+     */
+    draw(data){
+        this.data = data;
+        this.dyno_colors.set_count(Object.keys(data).length);
+
+        this._parse();
+        this._draw();
+    }
+
     _parse(){
-        let slices = {};
+        this.slices = {};
         let total = Object.values(this.data).reduce((a,b) => a+b, 0);
         let idx = 0;
         for (let category in this.data){
             let slice = {}
             slice['value'] = this.data[category];            
             slice['percentage'] = this.data[category] / total;
-            slice['color'] = this.colors[idx];
+            slice['color'] = this.dyno_colors.get_color(idx);
 
-            slices[category] = slice;
+            this.slices[category] = slice;
 
             idx = idx + 1;
         }
-
-        return slices;
     }
 
     /**
      * @param {number} percentage
      * @param {number} radius
+     * @return {{'height': number, 'width': number, 'spacing': number}}
      */
     _calc_label_size(percentage, radius){
         let area = Math.PI * Math.pow(radius/2,2) * percentage;
@@ -79,10 +131,26 @@ export class DynoPie{
         return {'x': tx,'y' : ty};
     }
 
+    /**
+     * @return {{'radius': number , 'cx': number, 'cy': number}}
+     */
+    _get_circle_params(){
+        let width = this.dyno_svg.get_width();
+        let height = this.dyno_svg.get_height();
+        let circle = {'radius':0 , 'cx': 0, 'cy': 0};
+        let clean_width = width - (this.graph_margins.left + this.graph_margins.right);
+        let clean_height = height - (this.graph_margins.top + this.graph_margins.bottom);
+        circle.radius = Math.min(clean_height/2, clean_width/2);
+
+        circle.cx = this.graph_margins.left + (clean_width/2);
+        circle.cy = this.graph_margins.top + (clean_height/2);
+
+        return circle;
+    }
+
 
     _draw(){
-        let circle_param = this.config.get_circle_params(this.dyno_svg.get_height(), this.dyno_svg.get_width());
-
+        let circle_param = this._get_circle_params();
         
         /**  Loop Through Data **/        
         let percentage_accumulated = 0;
@@ -97,8 +165,7 @@ export class DynoPie{
             this.slices[category]['pie'] = pie_slice;
 
             /* Create Label */
-            
-            let value = new DynoText(this.config.label_type).display_value_string(this.slices[category]['value']);
+            let value = this.dyno_text.display_value_string(this.slices[category]['value']);            
             let lines = {'label_category': category, 'label_value': value};
 
             let svg_labels = this.dyno_svg.pie_slice_label(lines, percentage_accumulated, percentage_end, circle_param, label_color, FONT_SIZE, LABEL_WIDTH, LABEL_HEIGHT, LABEL_SPACING);            
@@ -149,7 +216,7 @@ export class DynoPie{
     }
 
     _resize(){                
-        this.slices = this._parse();           
+        this._parse();           
         this._draw();
     }
 }

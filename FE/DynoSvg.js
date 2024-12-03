@@ -1,4 +1,5 @@
-import { get_text_color_for_element, getAttribute } from './DynoTools.js';
+import { getAttribute } from './DynoTools.js';
+import { get_text_color_for_element } from './DynoColors.js';
 import { DivCtrl, getSVGNS, GetComputedHeight, GetComputedWidth } from '../../FasterOrsted/FE/helpers.js';
 
 const ATTRIB_RESIZE_TYPE = 'resize_type';
@@ -26,7 +27,7 @@ export class DynoSvg{
         this.parent = DivCtrl(parent, 'div');
         this.parent_size = this._update_size();
         this.parent_new_size = this._update_size();
-        this.remove_elements = false;
+        this.remove_elements_flg = false;
                 
         this.parent_svg = this.svg(100, 100, 0, 0, true);
         this._set_resize_type_follow(this.parent_svg);        
@@ -44,17 +45,6 @@ export class DynoSvg{
         return {'height': GetComputedHeight(this.parent), 'width': GetComputedWidth(this.parent)};
     }
 
-    _removeElements(){
-        while(this.elements.length>0){
-            let element = this.elements.pop();
-            if (typeof element === 'undefined'){
-                return;
-            }
-            
-            element.remove();
-        }
-    }
-
     _div_resized(){ 
         let previous_size = this.parent_size;
 
@@ -66,8 +56,8 @@ export class DynoSvg{
             return;
         }
         
-        if (this.remove_elements == true){
-            this._removeElements();
+        if (this.remove_elements_flg == true){
+            this.remove_elements();
         }
         
         for (let callback of this.callbacks){
@@ -228,7 +218,7 @@ export class DynoSvg{
      */
     add_resize_callback(callback, auto_remove_elements){
         this.callbacks.push(callback);
-        this.remove_elements = auto_remove_elements;
+        this.remove_elements_flg = auto_remove_elements;
     }
 
     get_width(){
@@ -239,6 +229,21 @@ export class DynoSvg{
     get_height(){
         //@ts-ignore
         return GetComputedHeight(this.parent)
+    }
+
+    /*******************/
+    /* Remove Elements */
+    /*******************/
+
+    remove_elements(){
+        while(this.elements.length>0){
+            let element = this.elements.pop();
+            if (typeof element === 'undefined'){
+                return;
+            }
+            
+            element.remove();
+        }
     }
 
     /*******************/

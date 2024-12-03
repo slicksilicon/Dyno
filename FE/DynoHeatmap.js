@@ -1,34 +1,116 @@
 import { DynoSvg } from "./DynoSvg.js";
-import { DynoConfig } from "./DynoConfig.js";
-import { get_colors, convert_hsla_text_to_array} from "./DynoTools.js";
 import { DynoAxis } from "./DynoAxis.js";
+import { DynoColors, convert_hsla_text_to_array } from "./DynoColors.js";
+import { DynoRange } from "./DynoRange.js";
 
 
 const COLOR_COUNT = 10;
 const BLOCK_SIZE = 10;
 const SMOOTH_MIN = 0.00001;
 
+const DEFAULT_COLOR_SCHEME = 'heatmap';
+const DEFAULT_ALPHA = 0.5;
+
 export class DynoHeatmap{
     /**
      * @param {string|HTMLDivElement} id
-     * @param {DynoConfig} config
+     * @param {{'left': number, 'right': number, 'top': number, 'bottom': number}} graph_margins     
+     */
+    constructor(id, graph_margins){
+        /************/
+        /** Parent **/
+        /************/
+        this.svg = new DynoSvg(id);
+        this.graph_margins = graph_margins;
+
+        /**@type Element[] */
+        this.rectangles = [];
+
+        /**********/
+        /** Data **/
+        /**********/
+
+        /**@type number[][] */
+        this.data = [[]];
+
+        /**@type DynoRange */
+        this.range = new DynoRange();
+
+        // this.range = {"x": {'min':0, 'max': 0}, "y": {'min':0, 'max': 0}, 'data': {'min':0, 'max': 0}};                
+        // this._calc_range();
+
+        /************/
+        /** Colors **/
+        /************/
+
+        this.dyno_color = new DynoColors();
+        this.dyno_color.set_scheme_alpha(DEFAULT_COLOR_SCHEME, DEFAULT_ALPHA);
+        this.dyno_color.set_count(COLOR_COUNT);
+
+        
+        // let color_text = get_colors(this.config.color_schemes, 'heatmap', 0.5, COLOR_COUNT).reverse();
+        // for (let idx=0;idx<color_text.length;idx++){
+        //     this.color.push(convert_hsla_text_to_array(color_text[idx]));
+        // }
+
+        /**********/
+        /** Axis **/
+        /**********/
+        this.axis = {
+            'x_axis': new DynoAxis(this.svg, 'x_axis', graph_margins),
+            'y_axis': new DynoAxis(this.svg, 'y_left', graph_margins)
+        };
+
+
+        // this._draw();
+        this.svg.add_resize_callback(this._resize.bind(this), true);
+    }
+
+    /**
      * @param {number[][]} data
      */
-    constructor(id, data, config){
-        this.svg = new DynoSvg(id);
-        this.config = config;
+    draw(data){
         this.data = data;
+        this._set_ranges();
+        this._plot();
+    }
 
-        this.range = {"x": {'min':0, 'max': 0}, "y": {'min':0, 'max': 0}, 'data': {'min':0, 'max': 0}};                
-        this._calc_range();
+    _resize(){
+        this.axis.x_axis.remove();
+        this.axis.y_axis.remove();
 
-        this.color = [];
-        let color_text = get_colors(this.config.color_schemes, 'heatmap', 0.5, COLOR_COUNT).reverse();
-        for (let idx=0;idx<color_text.length;idx++){
-            this.color.push(convert_hsla_text_to_array(color_text[idx]));
+        while (this.rectangles.length > 0){
+            let rectangle = this.rectangles.pop();
+            rectangle?.remove();
         }
-        this._draw();
-        this.svg.add_resize_callback(this._draw.bind(this), true);
+
+        this._plot();
+    }
+
+    /**
+     * Sets the data & axis ranges
+     * @returns 
+     */
+    _set_ranges(){
+        let values = [];
+        let size_x = this.data[0].length;
+        for (let inner_array of this.data){
+            for (let value of inner_array){
+                values.push(value);
+            }
+
+            if (inner_array.length != size_x){
+                console.error(`Data length is inconsistant ${size_x} but got ${inner_array.length}`);
+                size_x = Math.max(size_x, inner_array.length);
+            }
+        }
+
+        /** Set Data Range **/
+        this.dyno_color.set_data_range_actual(Math.min(...values), Math.max(...values));
+
+        /** Set X-Axis & Y-Axis */
+        this.axis.x_axis.set_linear_data([], 'number', null, 0, size_x, null);
+        this.axis.y_axis.set_linear_data([], 'number', null, 0, this.data.length, null);
     }
 
     /**
@@ -39,36 +121,36 @@ export class DynoHeatmap{
         return (typeof value === 'undefined') ? 0 : value;
     }
 
-    _calc_range(){
-        this.range.data.min = 0;
-        this.range.data.max = 0;        
-        let y_size = this.data.length;
-        let x_size = this.data[0].length;
-        for (let idx=0;idx<this.data.length;idx++){
-            this.range.data.max = Math.max(this.range.data.max, ...this.data[idx]);
-            this.range.data.min = Math.min(this.range.data.min, ...this.data[idx]);
-            if (x_size != this.data[idx].length){
-                console.error('Data Must be a square matrix. Data is being clipped');
-                x_size = Math.min(x_size, this.data[idx].length);
-            }
-        }
+    // _calc_range(){
+    //     this.range.data.min = 0;
+    //     this.range.data.max = 0;        
+    //     let y_size = this.data.length;
+    //     let x_size = this.data[0].length;
+    //     for (let idx=0;idx<this.data.length;idx++){
+    //         this.range.data.max = Math.max(this.range.data.max, ...this.data[idx]);
+    //         this.range.data.min = Math.min(this.range.data.min, ...this.data[idx]);
+    //         if (x_size != this.data[idx].length){
+    //             console.error('Data Must be a square matrix. Data is being clipped');
+    //             x_size = Math.min(x_size, this.data[idx].length);
+    //         }
+    //     }
 
-        this.range.x.min = 0;
-        this.range.x.max = x_size-1;
-        this.range.y.min = 0;
-        this.range.y.max = y_size-1;        
-    }
+    //     this.range.x.min = 0;
+    //     this.range.x.max = x_size-1;
+    //     this.range.y.min = 0;
+    //     this.range.y.max = y_size-1;        
+    // }
 
-    /**
-     * @param {number} x
-     * @param {number} y
-     */
-    _get_color(x, y){        
-        let value = this.data[y][x];
-        let color_pos = ((value - this.range.data.min) / (this.range.data.max - this.range.data.min)) * (COLOR_COUNT-1);
-        color_pos = Math.round(color_pos);        
-        return this.color[color_pos];
-    }
+    // /**
+    //  * @param {number} x
+    //  * @param {number} y
+    //  */
+    // _get_color(x, y){        
+
+    //     let color_pos = ((value - this.range.data.min) / (this.range.data.max - this.range.data.min)) * (COLOR_COUNT-1);
+    //     color_pos = Math.round(color_pos);        
+    //     return this.color[color_pos];
+    // }
 
     /**
      * @param {{ x: number; y: number; }} point1
@@ -136,7 +218,8 @@ export class DynoHeatmap{
                     height = point_bottom_right.y - y;
                 }
 
-                this.svg.rectangle(x, y, width, height, hsla, 'transparent', 0, false);        
+                let rectangle = this.svg.rectangle(x, y, width, height, hsla, 'transparent', 0, false);   
+                this.rectangles.push(rectangle);     
                 
             }            
         }                    
@@ -148,8 +231,8 @@ export class DynoHeatmap{
      */
     _create_position(x,y){
         return {
-            'x': this._undefined_to_number(this.axis_x?.get_position_from_value(x)),
-            'y': this._undefined_to_number(this.axis_y?.get_position_from_value(y)),          
+            'x': this._undefined_to_number(this.axis.x_axis.get_position_from_value(x)),
+            'y': this._undefined_to_number(this.axis.y_axis.get_position_from_value(y)),          
         };
     }
 
@@ -158,26 +241,33 @@ export class DynoHeatmap{
      * @param {number} y
      */
     _create_position_color(x,y){
-        let pos_x = this._undefined_to_number(this.axis_x?.get_position_from_value(x));
-        let pos_y = this._undefined_to_number(this.axis_y?.get_position_from_value(y));
-        let color = this._get_color(x,y);
-        return {'x': pos_x, 'y': pos_y, 'color' : color };
+        let value = this.data[y][x];
+        
+        let pos_x = this._undefined_to_number(this.axis.x_axis.get_position_from_value(x));
+        let pos_y = this._undefined_to_number(this.axis.y_axis.get_position_from_value(y));
+        
+        let color_hsla = this.dyno_color.get_color_for_value(value);
+        let color_array = convert_hsla_text_to_array(color_hsla)
+
+        return {'x': pos_x, 'y': pos_y, 'color' : color_array };
     }
    
     _plot(){ 
         let edges = [];
-        for (let y=0;y<this.range.y.max;y=y+1){
-            for (let x=0;x<this.range.x.max;x++){
+        let y_max = this.axis.y_axis.get_max_value();
+        let x_max = this.axis.x_axis.get_max_value();
+
+        for (let y=0;y<y_max;y++){
+            for (let x=0;x<x_max;x++){
                 let pos = this._create_position_color(x,y);
                 edges.push(pos);
             }
         }       
 
-        for (let y=this.range.y.min;y<this.range.y.max;y++){
-            for (let x=this.range.x.min;x<this.range.x.max;x++){
+        for (let y=0;y<y_max;y++){
+            for (let x=0;x<x_max;x++){
                 let pos_bottom_right = this._create_position(x+1, y);
                 let pos_top_left = this._create_position(x, y+1);
-
 
                 this._fill_box(pos_top_left, pos_bottom_right, edges);                      
             }
@@ -186,10 +276,10 @@ export class DynoHeatmap{
         
     }
 
-    _draw(){
-        this.axis_x = new DynoAxis(this.svg, "x_axis", 'linear', -1, this.range.x, this.config.graph_margin );
-        this.axis_y = new DynoAxis(this.svg, "y_left", 'linear', -1, this.range.y, this.config.graph_margin );
+    // _draw(){
+    //     this.axis_x = new DynoAxis(this.svg, "x_axis", 'linear', -1, this.range.x, this.config.graph_margin );
+    //     this.axis_y = new DynoAxis(this.svg, "y_left", 'linear', -1, this.range.y, this.config.graph_margin );
 
-        this._plot();
-    }
+    //     this._plot();
+    // }
 }

@@ -1,15 +1,12 @@
-import { DynoBubble} from './DynoBubble.js'
 import { DynoPie } from './DynoPie.js';
 import { DynoBar } from './DynoBar.js';
-import { DynoRadar } from './DynoRadar.js';
 import { DynoLine } from './DynoLine.js';
-import { DynoConfig } from './DynoConfig.js';
 import { DynoSvg } from './DynoSvg.js';
 import { DynoHeatmap} from './DynoHeatmap.js'
 import { Sleep } from '../../FasterOrsted/FE/helpers.js';
-
 import { SelectorDropDownCtrl } from '../../FasterOrsted/FE/SelectorDropDownCtrl.js';
-import { convert_hsla_text_to_array } from './DynoTools.js';
+import { DynoBubble } from './DynoBubble.js';
+import { DynoRadar } from './DynoRadar.js';
 
 /*************/
 /* Selectors */
@@ -97,34 +94,31 @@ function bar_graph(id){
         }
     }
 
-    var dyno_config = new DynoConfig('bar');
-    dyno_config.set_axis_range(0, null, null, null);
-    dyno_config.set_axis_roundup(true, false);
-    dyno_config.set_label_type('ringgit');
-    dyno_config.set_color_schemes({'Muzaffar': 'teal', 'Yui': 'blue', 'NekoKun': 'grey'});
+    let graph_margins = {'top': 100, 'bottom': 30, 'left': 40, 'right': 50};
+    let dyno_graph = new DynoBar(id, graph_margins);
 
-    var dyno_graph = new DynoBar(id, graph_data2, dyno_config)
+    dyno_graph.set_axis_range(0, null);
+    dyno_graph.draw(graph_data2);
 }
 
 /**
  * @param {string} id
  */
 async function line_graph(id){
-    var graph_data = {
+    let graph_data = {
             'error' : [[1, 0.9], [2, 0.8], [3, 0.85], [4,0.6], [5, 0.3], [6, 0.2]], 
             'accuracy': [[1, 0.1], [2, 0.2], [3, 0.2], [4,0.25], [5, 0.3], [6, 0.35]]
         };
 
+    let graph_margins = {'top': 50, 'left': 40, 'bottom': 30, 'right': 50};
 
-    var dyno_config = new DynoConfig('line');
-    dyno_config.set_axis_range(0, 1.0, 0, 10);
-    dyno_config.set_axis_roundup(true, true);
-    dyno_config.set_label_type('number');
-    dyno_config.set_step_size(5);
-    dyno_config.set_step_min_count(15);
+    let dyno_graph = new DynoLine(id, graph_margins);
+    dyno_graph.set_axis_data_number('x_axis');
+    dyno_graph.set_axis_data_number('y_axis');
+    dyno_graph.set_axis_range('x_axis', 0, 10);
+    dyno_graph.set_axis_range('y_axis', 0, 1);
 
-    
-    var dyno_graph = new DynoLine(id, dyno_config, graph_data);
+    dyno_graph.draw(graph_data);
 
     await Sleep(1000);
 
@@ -198,9 +192,8 @@ function bubble_graph(id){
         }
     }
 
-    
-
     // for (let competency of ['Software Engineering', 'Infra']){
+
     //     graph_data[competency] = {};        
     //     for (let band of bands){
     //         for (let idx=0;idx<count[band];idx++){
@@ -210,20 +203,14 @@ function bubble_graph(id){
     //     }
     // }
         
-    var dyno_config = new DynoConfig('bubble');    
-    dyno_config.set_axis_range(0, 5, 0, 5);
-    dyno_config.set_axis_roundup(true, true);
-    dyno_config.set_label_type('number');
-    dyno_config.set_color_schemes({'SE': 'red', 'Architects': 'teal'});
-    dyno_config.range_radius = {'min': 0, 'max': 5};
-    // dyno_config.range_color  = {'min': 7, 'max': 13};
-    dyno_config.color_alpha['SE'] = 0.5;
-    dyno_config.graph_margin.top = 100;
-    dyno_config.graph_margin.right = 100;
 
-    
-            
-    var dyno_graph = new DynoBubble(id, graph_data, dyno_config);
+    let graph_margins = {'top': 100, 'bottom': 100, 'left': 50, 'right': 50};
+    let color_scheme =  {'SE': 'red', 'Architects': 'teal'};
+    var dyno_bubble = new DynoBubble(id, graph_margins);
+    dyno_bubble.set_alpha(0.7);
+    dyno_bubble.set_axis_range('x_axis', 0, 5);
+    dyno_bubble.set_axis_range('y_axis', 0, 5);
+    dyno_bubble.draw(graph_data, color_scheme);
 }
 
 /**
@@ -234,13 +221,19 @@ function pie_graph(id){
         'Maybank': 5000, 'CIMB': 3000, 'RHB': 7000, 'Ambank' : 8000
     };
 
-    let dyno_config = new DynoConfig('pie');
-    dyno_config.set_label_type('ringgit');
-    dyno_config.set_color_schemes({'pie': 'red'});
-    dyno_config.graph_margin.top = 20;
-    dyno_config.graph_margin.bottom = 20;
+    let graph_margins = {
+        'top': 20,
+        'bottom': 20,
+        'left' : 0,
+        'right' : 0,
+    }
 
-    let dyno_graph = new DynoPie(id, graph_data, dyno_config);
+    let dyno_pie = new DynoPie(id, graph_margins);
+    dyno_pie.set_color_scheme('red', 0.7);
+    dyno_pie.set_label_format('currency', 'ringgit', null);
+
+    dyno_pie.draw(graph_data);
+    
 }
 
 /**
@@ -262,15 +255,14 @@ function radar_graph(id){
     let graph_data = {
         'PIOGR'     : {'IaC': 5, 'Data': 2, 'Security': 3, 'Cost Optimization': 1, 'AWS': 4, 'Azure': 2},
         'SOL ARCH'  : {'IaC': 5, 'Data': 4, 'Security': 4, 'Cost Optimization': 3, 'AWS': 4, 'Azure': 4},
-    }
+    };
 
+    let graph_margins = {'top': 100, 'bottom': 100, 'left' : 100, 'right': 100};
 
-    let dyno_config = new DynoConfig('radar');
-    dyno_config.radar_max_value = 5;
-    dyno_config.graph_margin = {'left': 100, 'right':200, 'top': 150, 'bottom':150}
-    dyno_config.set_color_schemes({'radar': 'teal'})
-
-    let dyno_graph = new DynoRadar(id, graph_data, dyno_config);
+    let dyno_graph = new DynoRadar(id, graph_margins);
+    dyno_graph.set_color_scheme('maroon', 0.5);
+    dyno_graph.set_data(graph_data);
+    dyno_graph._draw()
 }
 
 /**
@@ -584,11 +576,10 @@ function heatmap_graph(id){
     let data = _generate_gaussian_matrix();
     // let data = [[0,1,2,3,4,5],[0,1,2,3,4,5], [0,1,2,3,4,5], [0,1,2,3,4,5], [0,1,2,3,4,5]];
     // let data = [[0,1,2],[0,1,2],[0,1,2]];    
-    let config = new DynoConfig("Heatmap");
-    config.set_color_schemes({'heatmap': 'cyan'})
+    // let config = new DynoConfig("Heatmap");
+    // config.set_color_schemes({'heatmap': 'cyan'})
+    let graph_margins = {'top': 50, 'bottom': 30, 'left': 40, 'right': 50};
 
-    let heatmap = new DynoHeatmap(id, data, config);
+    let heatmap = new DynoHeatmap(id, graph_margins);
+    heatmap.draw(data);
 }
-
-// heatmap_graph('graph_id');
-// direct_gradient('graph_id');
