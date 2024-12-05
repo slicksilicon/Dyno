@@ -110,7 +110,7 @@ async function line_graph(id){
             'accuracy': [[1, 0.1], [2, 0.2], [3, 0.2], [4,0.25], [5, 0.3], [6, 0.35]]
         };
 
-    let graph_margins = {'top': 50, 'left': 40, 'bottom': 30, 'right': 50};
+    let graph_margins = {'top': 50, 'left': 60, 'bottom': 50, 'right': 50};
 
     let dyno_graph = new DynoLine(id, graph_margins);
     dyno_graph.set_axis_data_number('x_axis');
@@ -576,8 +576,7 @@ function heatmap_graph(id){
     let data = _generate_gaussian_matrix();
     // let data = [[0,1,2,3,4,5],[0,1,2,3,4,5], [0,1,2,3,4,5], [0,1,2,3,4,5], [0,1,2,3,4,5]];
     // let data = [[0,1,2],[0,1,2],[0,1,2]];    
-    // let config = new DynoConfig("Heatmap");
-    // config.set_color_schemes({'heatmap': 'cyan'})
+
     let graph_margins = {'top': 50, 'bottom': 30, 'left': 40, 'right': 50};
 
     let heatmap = new DynoHeatmap(id, graph_margins);

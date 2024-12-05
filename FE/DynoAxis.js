@@ -20,6 +20,8 @@ const LINEAR_STEP_SIZE_DEFAULT = 75;
 /* Label Size Defaults */
 const MAX_LABEL_HEIGHT = 32;
 const LABEL_FONT_SIZE = 24;
+const LABEL_MARGIN_X = 15;
+const LABEL_MARGIN_Y = 5;
 
 /* Configuration Defaults */
 const DEFAULT_LABEL = 'number';
@@ -434,11 +436,15 @@ export class DynoAxis{
     _calc_label_width(){
         switch(this.axis_location){
             case 'x_axis':
-                return this.step_config.width;
+                let width = this.step_config.width - (LABEL_MARGIN_X*2);
+                if (width < 20){
+                    width = this.step_config.width;                    
+                }
+                return width;
             case 'y_left':
-                return this.graph_margins.left - STROKE_LENGTH;
+                return this.graph_margins.left - STROKE_LENGTH - LABEL_MARGIN_Y;
             case 'y_right':
-                return this.graph_margins.right - STROKE_LENGTH;
+                return this.graph_margins.right - STROKE_LENGTH - LABEL_MARGIN_Y;
         }        
     }
 

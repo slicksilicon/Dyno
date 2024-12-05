@@ -1,6 +1,4 @@
 import { DynoSvg } from "./DynoSvg.js";
-import { DynoConfig } from "./DynoConfig.js";
-// import { get_colors, convert_hsla_text_to_array} from "./DynoTools.js";
 import { DynoColors, convert_hsla_text_to_array } from "./DynoColors.js";
 import { DynoAxis } from "./DynoAxis.js";
 import { GetCtrl } from "../../FasterOrsted/FE/fetch.js";
